@@ -18,7 +18,6 @@ jobs:
     job_variable1: job-value1    # this is only available in job1
   steps:
   - bash: echo $(global_variable)
-  - bash: echo "Jsem zde"
   - bash: echo $(job_variable1)
   - bash: echo $JOB_VARIABLE1 # variables are available in the script environment too
 
