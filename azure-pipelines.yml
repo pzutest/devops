@@ -1,21 +1,12 @@
-# Maven
-# Build your Java project and run tests with Apache Maven.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/java
-
-
-
-
 variables:
-  global_variable: global-value    # this is available to all jobs 
-
+  global_variable: value    # this is available to all jobs
 
 jobs:
 - job: job1
   pool:
     vmImage: 'ubuntu-latest'
   variables:
-    job_variable1: job-value1    # this is only available in job1
+    job_variable1: value1    # this is only available in job1
   steps:
   - bash: echo $(global_variable)
   - bash: echo $(job_variable1)
@@ -25,21 +16,8 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   variables:
-    job_variable2: job-value2    # this is only available in job2
+    job_variable2: value2    # this is only available in job2
   steps:
   - bash: echo $(global_variable)
   - bash: echo $(job_variable2)
   - bash: echo $GLOBAL_VARIABLE
-  
- 
-- job: job3
-  pool:
-    vmImage: 'ubuntu-latest'
-  variables:
-    job_variable3: job-value3    # this is only available in job2
-  steps:
-  - bash: echo $(global_variable)
-  - bash: echo $(job_variable3)
-  - bash: echo $GLOBAL_VARIABLE
-  
-#
