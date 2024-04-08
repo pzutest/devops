@@ -32,5 +32,14 @@ jobs:
   - bash: echo $GLOBAL_VARIABLE
   
  
-
+- job: job3
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    job_variable2: job-value3    # this is only available in job2
+  steps:
+  - bash: echo $(global_variable)
+  - bash: echo $(job_variable2)
+  - bash: echo $GLOBAL_VARIABLE
+  
 #
