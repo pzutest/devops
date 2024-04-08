@@ -30,5 +30,7 @@ jobs:
   - bash: echo $(global_variable)
   - bash: echo $(job_variable2)
   - bash: echo $GLOBAL_VARIABLE
+  
+ 
 
 #
