@@ -1,23 +1,45 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+
+
+
 variables:
- GLOBAL_MYSECRET: $(mySecret) # this will not work because the secret variable needs to be mapped as env
- GLOBAL_MY_MAPPED_ENV_VAR: $(nonSecretVariable) # this works because it's not a secret.
+  global_variable: global-value    # this is available to all jobs 
 
-steps:
 
-- powershell: |
-    Write-Host "Using an input-macro works: $(mySecret)"
-    Write-Host "Using the env var directly does not work: $env:MYSECRET"
-    Write-Host "Using a global secret var mapped in the pipeline does not work either: $env:GLOBAL_MYSECRET"
-    Write-Host "Using a global non-secret var mapped in the pipeline works: $env:GLOBAL_MY_MAPPED_ENV_VAR" 
-    Write-Host "Using the mapped env var for this task works and is recommended: $env:MY_MAPPED_ENV_VAR"
-  env:
-    MY_MAPPED_ENV_VAR: $(mySecret) # the recommended way to map to an env variable
+jobs:
+- job: job1
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    job_variable1: job-value1    # this is only available in job1
+  steps:
+  - bash: echo $(global_variable)
+  - bash: echo $(job_variable1)
+  - bash: echo $JOB_VARIABLE1 # variables are available in the script environment too
 
-- bash: |
-    echo "Using an input-macro works: $(mySecret)"
-    echo "Using the env var directly does not work: $MYSECRET"
-    echo "Using a global secret var mapped in the pipeline does not work either: $GLOBAL_MYSECRET"
-    echo "Using a global non-secret var mapped in the pipeline works: $GLOBAL_MY_MAPPED_ENV_VAR" 
-    echo "Using the mapped env var for this task works and is recommended: $MY_MAPPED_ENV_VAR"
-  env:
-    MY_MAPPED_ENV_VAR: $(mySecret) # the recommended way to map to an env variable
+- job: job2
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    job_variable2: job-value2    # this is only available in job2
+  steps:
+  - bash: echo $(global_variable)
+  - bash: echo $(job_variable2)
+  - bash: echo $GLOBAL_VARIABLE
+  
+ 
+- job: job3
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    job_variable3: job-value3    # this is only available in job2
+  steps:
+  - bash: echo $(global_variable)
+  - bash: echo $(job_variable3)
+  - bash: echo $GLOBAL_VARIABLE
+  
+#
