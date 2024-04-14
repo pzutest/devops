@@ -1,45 +1,173 @@
-# Maven
-# Build your Java project and run tests with Apache Maven.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+name: Deploy Container Apps
+
+pool:
+  vmImage: ubuntu-latest
+
+trigger:
+  - none
+
+resources:
+  repositories:
+    - repository: iac-data
+      type: git
+      name: iac-data
+      ref: main
+      trigger:
+        branches:
+          include:
+            - main
+        paths:
+          include:
+            - deployment-manifest_prod.json
+#            - container-apps/*
 
 
-
+parameters:
+  - name: forceDeploy
+    displayName: Deploy Container App even if same version is already deployed (force deploy)
+    type: boolean
+    default: false
+  - name: containerApps
+    displayName: List of Container Apps to deploy (keys in deployment-manifest.json)
+    type: object
+    default:
+      - backendapi
+      - csszmanreg
+      - empinctest
+      - cizinci
+      - databox
+      - kafkaProducer
+      - energie
 
 variables:
-  global_variable: global-value    # this is available to all jobs 
+  - name: testContainerRegistryConnectionName
+    value: acrksib2b001mpsvcrtest
+  - name: prodContainerRegistryConnectionName
+    value: acrksib2b001mpsvcr
+  - name: azureServiceConnection
+    value: subs-ksi-fa
+  - name: acaResourceGroupName
+    value: rg-ksi-b2b-gateway
+  - name: forceDeploy
+    value: ${{ parameters.forceDeploy }}
 
+stages:
+  - stage: Validate
+    displayName: Manual validation
+    jobs:
+      - job: SkipPipeline
+        displayName: 'Skip Pipeline Run Check'
+        condition: not(contains(variables['Build.SourceVersionMessage'], 'skip-ci'))
+        steps:
+          - script: echo 'Pipeline was not skipped - other process will continue.'
 
-jobs:
-- job: job1
-  pool:
-    vmImage: 'ubuntu-latest'
-  variables:
-    job_variable1: job-value1    # this is only available in job1
-  steps:
-  - bash: echo $(global_variable)
-  - bash: echo $(job_variable1)
-  - bash: echo $JOB_VARIABLE1 # variables are available in the script environment too
-
-- job: job2
-  pool:
-    vmImage: 'ubuntu-latest'
-  variables:
-    job_variable2: job-value2    # this is only available in job2
-  steps:
-  - bash: echo $(global_variable)
-  - bash: echo $(job_variable2)
-  - bash: echo $GLOBAL_VARIABLE
+      - job: waitForValidation
+        dependsOn: SkipPipeline
+        displayName: Wait for external validation
+        pool: server
+        timeoutInMinutes: 4320 # job times out in 3 days
+        steps:
+        - task: ManualValidation@0
+          timeoutInMinutes: 1440 # task times out in 1 day
+          inputs:
+            notifyUsers: ''
+            instructions: 'Please validate the build configuration and resume'
+            onTimeout: 'reject'
   
- 
-- job: job3
-  pool:
-    vmImage: 'ubuntu-latest'
-  variables:
-    job_variable3: job-value3    # this is only available in job2
-  steps:
-  - bash: echo $(global_variable)
-  - bash: echo $(job_variable3)
-  - bash: echo $GLOBAL_VARIABLE
-  
-#
+  - ${{ each containerApp in parameters.containerApps }} :
+      - stage: Deploy${{ containerApp }}
+        displayName: Deploy ${{ containerApp }} Container App
+        dependsOn: Validate
+        jobs:
+          - job: Check
+            displayName: Check ${{ containerApp }}
+            steps:
+              - checkout: self
+                clean: true
+              - checkout: iac-data
+                path: data
+              - pwsh: |
+                  $manifestPath = "$(Agent.BuildDirectory)/data/deployment-manifest$(deploymentManifestEnvironment).json"
+                  if(-not (Test-Path -Path $manifestPath)) {
+                    Write-Error "deployment-manifest.json file is missing"
+                  }
+
+                  $json = Get-Content -Path $manifestPath | ConvertFrom-Json
+                  $containerAppInfo = $json.containerApps.${{ containerApp }}
+                  $containerAppInfo | fl
+                  if($containerAppInfo -eq $null) {
+                    Write-Error "Missing property ${{ containerApp }} in deployment-manifest$(deploymentManifestEnvironment).json file"
+                  }
+
+                  Write-Host "##vso[task.setvariable variable=containerAppName;isoutput=true]$($containerAppInfo.containerAppName)"
+                  Write-Host "##vso[task.setvariable variable=templateFile;isoutput=true]$(Agent.BuildDirectory)/data/$($containerAppInfo.templateFile)"
+                  Write-Host "##vso[task.setvariable variable=imageName;isoutput=true]$($containerAppInfo.imageName)"
+                  Write-Host "##vso[task.setvariable variable=version;isoutput=true]$($containerAppInfo.version)"
+                name: manifest
+                displayName: 'Get details from manifest'
+              - task: AzureCLI@2
+                displayName: Check current version
+                name: versionCheck
+                inputs:
+                  azureSubscription: $(azureServiceConnection)
+                  scriptType: 'pscore'
+                  scriptLocation: 'inlineScript'
+                  inlineScript: |
+                    $info = az containerapp show -g $(acaResourceGroupName) -n $(manifest.containerAppName) | ConvertFrom-Json
+                    $image = $info.properties.template.containers | Select-Object -ExpandProperty image
+                    $currentVersion = $image.Split(":")[1]
+
+                    "Deployed version: $currentVersion"
+                    "Expected version (in manifest): $(manifest.version)"
+                    "Versions are equal: $($currentVersion -eq "$(manifest.version)" ? "yes" : "no")"
+                    "Force deploy: $(forceDeploy)"
+
+                    Write-Host "##vso[task.setvariable variable=isVersionAlreadyDeployed;isoutput=true]$($currentVersion -eq "$(manifest.version)" ? "yes" : "no")"
+
+                    if($currentVersion -eq $(manifest.version)) {
+                      Write-Host "`nVersion set in manifest $(manifest.version) is already deployed in Azure Container App."
+                    }
+
+          - job: Deploy
+            displayName: Deploy ${{ containerApp }}
+            dependsOn: Check
+            condition: or(eq(dependencies.Check.outputs['versionCheck.isVersionAlreadyDeployed'], 'no'), eq(variables.forceDeploy, true))
+            variables:
+              manifestContainerAppName: $[ dependencies.Check.outputs['manifest.containerAppName'] ]
+              manifestTemplateFile: $[ dependencies.Check.outputs['manifest.templateFile'] ]
+              manifestImageName: $[ dependencies.Check.outputs['manifest.imageName'] ]
+              manifestVersion: $[ dependencies.Check.outputs['manifest.version'] ]
+            steps:
+              - checkout: self
+                clean: true
+              - checkout: iac-data
+                path: data                    
+              - task: Docker@2
+                displayName: Connect to ACR (test)
+                inputs:
+                  command: login
+                  containerRegistry: $(testContainerRegistryConnectionName)
+              - task: Docker@2
+                displayName: Connect to ACR (prod)
+                inputs:
+                  command: login
+                  containerRegistry: $(prodContainerRegistryConnectionName)
+              - task: Bash@3
+                displayName: Syncing Docker image
+                inputs:
+                  targetType: inline
+                  script: |
+                    docker pull $(testContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)
+                    docker tag $(testContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion) $(prodContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)
+                    docker push $(prodContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)
+              - bash: |
+                  sed -i 's|{{IMAGE_NAME}}|$(prodContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)|' $(manifestTemplateFile)
+                displayName: "Set image path in ACA YAML config file"
+              - task: AzureContainerApps@1
+                displayName: 'Deploy app to Azure Container App'
+                inputs:
+                  azureSubscription: $(azureServiceConnection)
+                  containerAppName: $(manifestContainerAppName)
+                  resourceGroup: $(acaResourceGroupName)
+                  disableTelemetry: true
+                  yamlConfigPath: $(manifestTemplateFile)
