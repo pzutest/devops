@@ -1,19 +1,18 @@
-name: Deploy Container Apps
+jobs:
+- job: A
+  steps:
+  - script: exit 1
 
-pool:
-  vmImage: ubuntu-latest
+- job: B
+  dependsOn: A
+  condition: failed()
+  steps:
+  - script: echo this will run when A fails
 
-trigger:
-  - none
-
-stages:
-  - stage: Validate
-    displayName: Manual validation
-    jobs:
-      - job: A
-        steps:
-          - script: echo hello from the Debug build
-      - job: B
-        dependsOn: A
-        steps:
-          - script: echo hello from the Release build
+- job: C
+  dependsOn:
+  - A
+  - B
+  condition: succeeded('B')
+  steps:
+  - script: echo this will run when B runs and succeeds
