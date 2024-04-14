@@ -1,8 +1,14 @@
-jobs:
-- job: Debug
-  steps:
-  - script: echo hello from the Debug build
-- job: Release
-  dependsOn: Debug
-  steps:
-  - script: echo hello from the Release build
+name: Deploy Container Apps
+
+pool:
+  vmImage: ubuntu-latest
+
+trigger:
+  - none
+
+stages:
+  - stage: Validate
+    displayName: Manual validation
+    jobs:
+      - job: A
+          
