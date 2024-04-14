@@ -18,7 +18,7 @@ resources:
             - main
         paths:
           include:
-            - deployment-manifest_prod.json
+            - deployment-manifest_prod.json  # soubor neexistuje
 #            - container-apps/*
 
 
@@ -57,7 +57,7 @@ stages:
     jobs:
       - job: SkipPipeline
         displayName: 'Skip Pipeline Run Check'
-        condition: not(contains(variables['Build.SourceVersionMessage'], 'skip-ci'))
+        condition: not(contains(variables['Build.SourceVersionMessage'], 'skip-ci'))  # nevim kde se bere ta promenna
         steps:
           - script: echo 'Pipeline was not skipped - other process will continue.'
 
@@ -67,7 +67,7 @@ stages:
         pool: server
         timeoutInMinutes: 4320 # job times out in 3 days
         steps:
-        - task: ManualValidation@0
+        - task: ManualValidation@0                                      # netusim jak ta validace funguje
           timeoutInMinutes: 1440 # task times out in 1 day
           inputs:
             notifyUsers: ''
@@ -85,7 +85,7 @@ stages:
               - checkout: self
                 clean: true
               - checkout: iac-data
-                path: data
+                path: data                                            # nevidim data + souvisejici napr manifest file
               - pwsh: |
                   $manifestPath = "$(Agent.BuildDirectory)/data/deployment-manifest$(deploymentManifestEnvironment).json"
                   if(-not (Test-Path -Path $manifestPath)) {
@@ -105,7 +105,7 @@ stages:
                   Write-Host "##vso[task.setvariable variable=version;isoutput=true]$($containerAppInfo.version)"
                 name: manifest
                 displayName: 'Get details from manifest'
-              - task: AzureCLI@2
+              - task: AzureCLI@2                              # netusim proc je ten task takhle pojmenovanej
                 displayName: Check current version
                 name: versionCheck
                 inputs:
@@ -116,9 +116,9 @@ stages:
                     $info = az containerapp show -g $(acaResourceGroupName) -n $(manifest.containerAppName) | ConvertFrom-Json
                     $image = $info.properties.template.containers | Select-Object -ExpandProperty image
                     $currentVersion = $image.Split(":")[1]
-
+                                                                     # netusim jak se nacita manifest.version
                     "Deployed version: $currentVersion"
-                    "Expected version (in manifest): $(manifest.version)"
+                    "Expected version (in manifest): $(manifest.version)"                
                     "Versions are equal: $($currentVersion -eq "$(manifest.version)" ? "yes" : "no")"
                     "Force deploy: $(forceDeploy)"
 
@@ -132,7 +132,7 @@ stages:
             displayName: Deploy ${{ containerApp }}
             dependsOn: Check
             condition: or(eq(dependencies.Check.outputs['versionCheck.isVersionAlreadyDeployed'], 'no'), eq(variables.forceDeploy, true))
-            variables:
+            variables:                                              # asi neumim spravne precist predch radek
               manifestContainerAppName: $[ dependencies.Check.outputs['manifest.containerAppName'] ]
               manifestTemplateFile: $[ dependencies.Check.outputs['manifest.templateFile'] ]
               manifestImageName: $[ dependencies.Check.outputs['manifest.imageName'] ]
@@ -142,12 +142,12 @@ stages:
                 clean: true
               - checkout: iac-data
                 path: data                    
-              - task: Docker@2
+              - task: Docker@2                                
                 displayName: Connect to ACR (test)
                 inputs:
                   command: login
                   containerRegistry: $(testContainerRegistryConnectionName)
-              - task: Docker@2
+              - task: Docker@2                                   # netusim proc se jmenuje stejne jako predch task
                 displayName: Connect to ACR (prod)
                 inputs:
                   command: login
@@ -160,10 +160,11 @@ stages:
                     docker pull $(testContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)
                     docker tag $(testContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion) $(prodContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)
                     docker push $(prodContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)
+                                          # co a proc se taguje
               - bash: |
                   sed -i 's|{{IMAGE_NAME}}|$(prodContainerRegistryConnectionName).azurecr.io/$(manifestImageName):$(manifestVersion)|' $(manifestTemplateFile)
-                displayName: "Set image path in ACA YAML config file"
-              - task: AzureContainerApps@1
+                displayName: "Set image path in ACA YAML config file"         # netusim
+              - task: AzureContainerApps@1                                    # netusim
                 displayName: 'Deploy app to Azure Container App'
                 inputs:
                   azureSubscription: $(azureServiceConnection)
