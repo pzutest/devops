@@ -1,8 +1,8 @@
 jobs:
-- job: A
+- job: Debug
   steps:
-  - bash: echo "A"
-
-- job: B
+  - script: echo hello from the Debug build
+- job: Release
+  dependsOn: Debug
   steps:
-  - bash: echo "B"
+  - script: echo hello from the Release build
