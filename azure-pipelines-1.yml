@@ -1,12 +1,19 @@
-variables:
-  mySimpleVar: simple var value
-  "my.dotted.var": dotted var value
-  "my var with spaces": var with spaces value
+parameters:
+- name: image
+  displayName: Pool Image
+  type: string
+  default: ubuntu-latest
+  values:
+  - windows-latest
+  - ubuntu-latest
+  - macOS-latest
 
-steps:
-- script: echo Widlousky Input macro = $(mySimpleVar). Env var = %MYSIMPLEVAR%
-  condition: eq(variables['agent.os'], 'Windows_NT')
-- script: echo Linuchek Input macro = $(mySimpleVar). Env var = $MYSIMPLEVAR
-  condition: in(variables['agent.os'], 'Darwin', 'Linux')
-- bash: echo Input macro = $(my.dotted.var). Env var = $MY_DOTTED_VAR
-- powershell: Write-Host "Input macro = $(my var with spaces). Env var = $env:MY_VAR_WITH_SPACES"
+trigger: none
+
+jobs:
+- job: build
+  displayName: build
+  pool: 
+    vmImage: ${{ parameters.image }}
+  steps:
+  - script: echo building $(Build.BuildNumber) with ${{ parameters.image }}
