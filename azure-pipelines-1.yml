@@ -1,25 +1,28 @@
+# start.yaml
 parameters:
-- name: image
-  displayName: Pool Image
+- name: myStringName
   type: string
-  default: ubuntu-latest
+  default: a string value
+- name: myMultiString
+  type: string
+  default: default
   values:
-  - windows-latest
-  - ubuntu-latest
-  - macOS-latest
-- name: test
-  displayName: Run Tests?
+  - default
+  - ubuntu
+- name: myNumber
+  type: number
+  default: 2
+  values:
+  - 1
+  - 2
+  - 4
+  - 8
+  - 16
+- name: myBoolean
   type: boolean
-  default: false
+  default: true
 
-trigger: none
-
-jobs:
-- job: build
-  displayName: Build and Test
-  pool: 
-    vmImage: ${{ parameters.image }}
-  steps:
-  - script: echo building $(Build.BuildNumber)
-  - ${{ if eq(parameters.test, true) }}:
-    - script: echo "Running all the testikes"
+steps: 
+- ${{ each parameter in parameters }}:
+  - script: echo ${{ parameter.Key }} 
+  - script: echo ${{ parameter.Value }}
