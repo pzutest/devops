@@ -173,3 +173,11 @@ stages:
                   disableTelemetry: true
                   yamlConfigPath: $(manifestTemplateFile)
                                                                               # neodvedlo me na man.bicep
+                                                          # Pouzivame pipeline decoratory viz nize ?
+                                                          # Suppose your organization requires running a virus 
+                                                          #scanner on all build outputs that could be released. 
+                                                          #Pipeline authors don't need to remember to add that 
+                                                          # step. We create a decorator that automatically 
+                                                          #injects the step. Our pipeline decorator injects a 
+                                                          # custom task that does virus scanning at the end of 
+                                                          #every pipeline job.
