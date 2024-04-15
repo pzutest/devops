@@ -94,7 +94,7 @@ stages:
 
                   $json = Get-Content -Path $manifestPath | ConvertFrom-Json
                   $containerAppInfo = $json.containerApps.${{ containerApp }}
-                  $containerAppInfo | fl
+                  $containerAppInfo | fl                            # neumim precist
                   if($containerAppInfo -eq $null) {
                     Write-Error "Missing property ${{ containerApp }} in deployment-manifest$(deploymentManifestEnvironment).json file"
                   }
@@ -172,3 +172,4 @@ stages:
                   resourceGroup: $(acaResourceGroupName)
                   disableTelemetry: true
                   yamlConfigPath: $(manifestTemplateFile)
+                                                                              # neodvedlo me na man.bicep
