@@ -22,4 +22,4 @@ jobs:
   steps:
   - script: echo building $(Build.BuildNumber)
   - ${{ if eq(parameters.test, true) }}:
-    - script: echo "Running all the tests"
+    - script: echo "Running all the testikes"
